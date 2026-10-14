@@ -16,3 +16,7 @@ if lottie_hello:
     st_lottie(lottie_hello, height=300)
 
 st.balloons()
+
+# --- Texto nuevo que agregamos abajo ---
+st.subheader("SmartQuote")
+st.write("Trabajando en la aplicación del reto.")
