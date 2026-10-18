@@ -6,7 +6,7 @@ SmartQuote ayuda a compradores de pequeñas y medianas empresas a registrar, rev
 
 Lee [especificacion.md](especificacion.md) antes de modificar el proyecto. Esa especificación define las funcionalidades, el flujo, las restricciones y los criterios de aceptación.
 
-La app ya tiene un despliegue en [SmartQuote](https://smartquote.streamlit.app/). Al preparar este documento, contiene el «Hola mundo» de la semana 1; todavía está pendiente construir y revisar la versión 0. El repositorio público conectado es [kcs191095/hola-ia](https://github.com/kcs191095/hola-ia), en la rama `main`. El usuario ha solicitado que el repositorio se llame `smartquote`; el cambio aún está pendiente. Comprueba el estado actual antes de modificar el código.
+La app ya tiene un despliegue en [SmartQuote](https://smartquote.streamlit.app/). Al preparar este documento, contiene el «Hola mundo» de la semana 1; todavía está pendiente construir y revisar la versión 0. El repositorio público del proyecto es [kcs191095/smartquote](https://github.com/kcs191095/smartquote), en la rama `main`. El usuario ya realizó el cambio de nombre en GitHub. Comprueba el estado actual antes de modificar el código y verifica la conexión y la administración de Streamlit con el repositorio renombrado antes de publicar la versión 0.
 
 ## Cómo está hecho
 
