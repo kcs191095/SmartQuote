@@ -1,4 +1,4 @@
-"""SmartQuote v0: registro manual y comparación de cotizaciones sin API."""
+"""SmartQuote: comparación manual y comprobación de conexión con Gemini."""
 
 from collections import defaultdict
 from copy import deepcopy
@@ -11,6 +11,10 @@ import re
 import streamlit as st
 
 
+# Modelo inicial verificado en la documentación de Google el 25/10/2026.
+# https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite
+MODELO = "gemini-3.5-flash-lite"
+TIEMPO_ESPERA_IA_MS = 20_000
 CENTAVO = Decimal("0.01")
 CAMPOS = (
     "proveedor", "producto", "cantidad", "unidad", "precio_unitario", "moneda",
@@ -48,6 +52,78 @@ RIESGO_INCOTERM = {
     "DPU": "En destino, descargada.",
     "DDP": "En destino, lista para descargar, con importación a cargo del vendedor.",
 }
+
+
+def mensaje_error_ia(error):
+    """Devuelve mensajes fijos; nunca muestra el contenido de una excepción."""
+    codigo = getattr(error, "code", None) or getattr(error, "status_code", None)
+    if codigo in (429, "429"):
+        return "La cuota de IA se ha agotado o está temporalmente limitada. Inténtalo más tarde; puedes continuar con las funciones manuales."
+    if codigo in (401, 403, "401", "403"):
+        return "La clave no fue aceptada o no tiene acceso al servicio. Revisa GEMINI_API_KEY en los secretos de Streamlit; puedes continuar manualmente."
+    if codigo in (400, "400"):
+        return "Gemini rechazó la petición. Revisa la clave y la configuración del proyecto; las funciones manuales siguen disponibles."
+    if codigo in (404, "404"):
+        return "El modelo configurado no está disponible para este proyecto. Hay que revisar su disponibilidad; puedes continuar manualmente."
+    if isinstance(error, TimeoutError) or type(error).__name__ in {
+        "TimeoutException", "ConnectTimeout", "ReadTimeout", "WriteTimeout", "PoolTimeout",
+    }:
+        return "La IA tardó demasiado en responder. Puedes volver a intentarlo más tarde o continuar manualmente."
+    if isinstance(error, ConnectionError) or type(error).__name__ in {
+        "ConnectError", "NetworkError", "ReadError", "WriteError", "ProxyError",
+    }:
+        return "No se pudo conectar con la IA. Inténtalo más tarde; tus cotizaciones y las funciones manuales siguen disponibles."
+    return "La IA no está disponible en este momento. Inténtalo más tarde; tus cotizaciones y las funciones manuales siguen disponibles."
+
+
+def probar_conexion_ia():
+    """Una solicitud explícita de prueba; solo envía un saludo fijo al servicio."""
+    try:
+        clave = st.secrets.get("GEMINI_API_KEY", "")
+    except Exception:
+        return {"ok": False, "mensaje": "No se pudo leer GEMINI_API_KEY. Revisa los secretos de Streamlit; puedes continuar manualmente."}
+    if not isinstance(clave, str) or not clave.strip():
+        return {"ok": False, "mensaje": "Falta GEMINI_API_KEY en los secretos de Streamlit. Las funciones manuales siguen disponibles."}
+
+    try:
+        from google import genai
+        from google.genai import types
+    except Exception:
+        return {"ok": False, "mensaje": "No se pudo cargar la conexión con Gemini. Revisa la instalación de google-genai; puedes continuar manualmente."}
+
+    try:
+        with genai.Client(
+            api_key=clave.strip(),
+            http_options=types.HttpOptions(
+                timeout=TIEMPO_ESPERA_IA_MS,
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        ) as cliente:
+            respuesta = cliente.models.generate_content(
+                model=MODELO,
+                contents="Esta es una prueba de conexión. Responde únicamente con SMARTQUOTE_OK, sin explicaciones.",
+                config=types.GenerateContentConfig(temperature=0, max_output_tokens=256),
+            )
+        if not isinstance(respuesta.text, str) or respuesta.text.strip() != "SMARTQUOTE_OK":
+            return {"ok": False, "mensaje": "El servicio respondió, pero la prueba no obtuvo la confirmación esperada. Vuelve a intentarlo; puedes continuar manualmente."}
+        return {"ok": True, "mensaje": "Conexión con Gemini comprobada correctamente."}
+    except Exception as error:
+        return {"ok": False, "mensaje": mensaje_error_ia(error)}
+
+
+def mostrar_conexion_ia():
+    with st.expander("Conexión con IA"):
+        st.caption("Esta prueba envía únicamente un saludo a Gemini al pulsar el botón.")
+        if st.button("Probar conexión con IA", key="probar_conexion_ia"):
+            with st.spinner("Comprobando la conexión con IA..."):
+                st.session_state.prueba_conexion_ia = probar_conexion_ia()
+        resultado = st.session_state.prueba_conexion_ia
+        if resultado is not None:
+            st.caption("Resultado de la última prueba solicitada en esta sesión.")
+            if resultado["ok"]:
+                st.success(resultado["mensaje"])
+            else:
+                st.warning(resultado["mensaje"])
 
 
 def leer_decimal(texto, etiqueta, positivo=False):
@@ -811,6 +887,7 @@ def inicializar_sesion():
         "numero_edicion": None, "configuracion_analisis": {},
         "destino_analisis": "", "objetivo_presupuesto": "", "objetivo_lt": "",
         "tolerancia_texto": "", "prioridad_analisis": "Sin preferencia",
+        "prueba_conexion_ia": None,
     }
     for clave, valor in iniciales.items():
         if clave not in st.session_state:
@@ -1475,7 +1552,8 @@ def main():
     st.divider()
     mostrar_configuracion()
     st.divider()
-    st.caption("SmartQuote · Versión 0 · Registro manual y comparación con reglas. La lectura de archivos y el resumen con IA se incorporarán en la siguiente fase del reto.")
+    mostrar_conexion_ia()
+    st.caption("SmartQuote · Registro manual y comparación con reglas. La comprobación de conexión con IA está incorporada; la lectura de archivos y la explicación con IA se añadirán en los siguientes pasos.")
 
 
 if __name__ == "__main__":
