@@ -102,6 +102,25 @@ class ArchivosYContrato(unittest.TestCase):
         datos["lineas"][0]["precio_unitario"] = "0"
         self.assertEqual(app.leer_respuesta_extraccion(json.dumps(datos)), datos)
 
+    def test_limites_locales_se_aplican_aunque_no_se_envien_a_gemini(self):
+        datos = datos_extraidos()
+        datos["lineas"] *= app.MAX_LINEAS_ARCHIVO
+        datos["lineas"][0]["tramos"] *= app.MAX_TRAMOS_ARCHIVO // 2
+        datos["avisos"] = ["Aviso ficticio"] * 40
+        datos["referencias"] *= 160
+        datos["proveedor"] = "P" * 160
+        self.assertEqual(app.leer_respuesta_extraccion(json.dumps(datos)), datos)
+        for campo in ("lineas", "tramos", "avisos", "referencias", "proveedor"):
+            caso = deepcopy(datos)
+            if campo == "tramos":
+                caso["lineas"][0][campo].append(deepcopy(caso["lineas"][0][campo][0]))
+            elif campo == "proveedor":
+                caso[campo] += "P"
+            else:
+                caso[campo].append(deepcopy(caso[campo][0]))
+            with self.subTest(campo=campo), self.assertRaises(ValueError):
+                app.leer_respuesta_extraccion(json.dumps(caso))
+
     def test_contrato_incompleto_duplicado_con_numeros_o_campos_ajenos_se_rechaza(self):
         casos = []
         incompleto = datos_extraidos()
@@ -226,7 +245,15 @@ class ServicioYRecorrido(unittest.TestCase):
         self.assertTrue(resultado["ok"], resultado)
         self.assertEqual(len(solicitudes), 1)
         cuerpo = json.loads(solicitudes[0].content)
-        self.assertFalse(cuerpo["generationConfig"]["responseJsonSchema"]["additionalProperties"])
+        esquema_api = cuerpo["generationConfig"]["responseJsonSchema"]
+        self.assertFalse(esquema_api["additionalProperties"])
+        self.assertNotIn('"maxItems"', json.dumps(esquema_api))
+        self.assertNotIn('"maxLength"', json.dumps(esquema_api))
+        linea_api = esquema_api["properties"]["lineas"]["items"]
+        self.assertEqual(set(linea_api["required"]), set(linea_api["properties"]))
+        self.assertEqual(linea_api["properties"]["moq"]["type"], ["string", "null"])
+        self.assertIn("Por confirmar", linea_api["properties"]["estado_multiplo"]["enum"])
+        self.assertEqual(app.esquema_extraccion()["properties"]["lineas"]["maxItems"], app.MAX_LINEAS_ARCHIVO)
         partes = cuerpo["contents"][0]["parts"]
         adjunto = next(p["inlineData"] for p in partes if "inlineData" in p)
         self.assertEqual(base64.urlsafe_b64decode(adjunto["data"]), contenido_pdf)
