@@ -148,8 +148,6 @@ Las cuatro capturas del final muestran el caso principal, el aviso de archivo in
 
 **Siguiente mejora propuesta:** mostrar primero los campos necesarios para comenzar y agrupar las opciones avanzadas, comprobando después si eso facilita el primer uso. Esta simplificación de la interfaz todavía no está implementada.
 
-**Prueba de una app de un compañero:** pendiente de realizar. El comentario con lo que probé, lo que funcionó, dónde me atasqué y una sugerencia se incorporará al registro después de publicarlo en el debate del hito.
-
 ## Ejecutar en local (opcional)
 
 Desde la carpeta del proyecto, con Python 3.12 y las dependencias de `requirements.txt`:
